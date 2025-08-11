@@ -15,7 +15,6 @@ export default function Button({
   loading = false,
   icon,
   disabled,
-  className = '',
   style,
   ...props 
 }: ButtonProps) {

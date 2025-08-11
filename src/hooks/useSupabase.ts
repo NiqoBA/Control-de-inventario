@@ -1,36 +1,35 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { SupabaseClient } from '@supabase/supabase-js'
 
 interface UseSupabaseOptions<T> {
   table: string
   select?: string
-  filters?: Record<string, any>
+  filters?: Record<string, unknown>
   orderBy?: { column: string; ascending?: boolean }
   limit?: number
   onSuccess?: (data: T[]) => void
-  onError?: (error: any) => void
+  onError?: (error: Error | null) => void
   enabled?: boolean
 }
 
 interface UseSupabaseResult<T> {
   data: T[]
   loading: boolean
-  error: any
+  error: Error | null
   refetch: () => Promise<void>
   create: (data: Partial<T>) => Promise<void>
   update: (id: string, data: Partial<T>) => Promise<void>
   delete: (id: string) => Promise<void>
 }
 
-export function useSupabase<T = any>(options: UseSupabaseOptions<T>): UseSupabaseResult<T> {
+export function useSupabase<T = Record<string, unknown>>(options: UseSupabaseOptions<T>): UseSupabaseResult<T> {
   const [data, setData] = useState<T[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<any>(null)
+  const [error, setError] = useState<Error | null>(null)
 
   const supabase = createClient()
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!options.enabled) return
 
     try {
@@ -72,12 +71,13 @@ export function useSupabase<T = any>(options: UseSupabaseOptions<T>): UseSupabas
         options.onSuccess?.(result || [])
       }
     } catch (err) {
-      setError(err)
-      options.onError?.(err)
+      const error = err instanceof Error ? err : new Error(String(err))
+      setError(error)
+      options.onError?.(error)
     } finally {
       setLoading(false)
     }
-  }
+  }, [options.enabled, options.table, options.select, options.filters, options.orderBy, options.limit, options.onError, options.onSuccess, supabase])
 
   const create = async (newData: Partial<T>) => {
     try {
@@ -93,8 +93,9 @@ export function useSupabase<T = any>(options: UseSupabaseOptions<T>): UseSupabas
         await fetchData() // Recargar datos
       }
     } catch (err) {
-      setError(err)
-      options.onError?.(err)
+      const error = err instanceof Error ? err : new Error(String(err))
+      setError(error)
+      options.onError?.(error)
     }
   }
 
@@ -113,8 +114,9 @@ export function useSupabase<T = any>(options: UseSupabaseOptions<T>): UseSupabas
         await fetchData() // Recargar datos
       }
     } catch (err) {
-      setError(err)
-      options.onError?.(err)
+      const error = err instanceof Error ? err : new Error(String(err))
+      setError(error)
+      options.onError?.(error)
     }
   }
 
@@ -133,14 +135,15 @@ export function useSupabase<T = any>(options: UseSupabaseOptions<T>): UseSupabas
         await fetchData() // Recargar datos
       }
     } catch (err) {
-      setError(err)
-      options.onError?.(err)
+      const error = err instanceof Error ? err : new Error(String(err))
+      setError(error)
+      options.onError?.(error)
     }
   }
 
   useEffect(() => {
     fetchData()
-  }, [options.table, options.select, JSON.stringify(options.filters), options.orderBy?.column, options.orderBy?.ascending, options.limit, options.enabled])
+  }, [fetchData])
 
   return {
     data,
@@ -162,7 +165,7 @@ export function useDashboardStats() {
     recentTransactions: 0,
   })
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<any>(null)
+  const [error, setError] = useState<Error | null>(null)
 
   const fetchStats = async () => {
     try {
@@ -207,7 +210,8 @@ export function useDashboardStats() {
         recentTransactions: recentTransactionsCount || 0,
       })
     } catch (err) {
-      setError(err)
+      const error = err instanceof Error ? err : new Error(String(err))
+      setError(error)
     } finally {
       setLoading(false)
     }
