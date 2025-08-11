@@ -266,13 +266,21 @@ export default function EmployeesPage() {
                         borderRadius: '0.5rem',
                         border: '1px solid rgba(218, 165, 32, 0.2)'
                       }}>
-                        <div>
+                        <div style={{ flex: 1 }}>
                           <p style={{ fontSize: '0.875rem', fontWeight: '500', color: '#111827' }}>
                             {assignment.product?.name}
                           </p>
-                          <p style={{ fontSize: '0.75rem', color: '#6B7280' }}>
-                            Cantidad: {assignment.quantity}
-                          </p>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                            <p style={{ fontSize: '0.75rem', color: '#6B7280', fontFamily: 'monospace' }}>
+                              <strong>ID:</strong> {assignment.product_id}
+                            </p>
+                            <p style={{ fontSize: '0.75rem', color: '#6B7280' }}>
+                              <strong>SKU:</strong> {assignment.product?.sku}
+                            </p>
+                            <p style={{ fontSize: '0.75rem', color: '#6B7280' }}>
+                              <strong>Cantidad:</strong> {assignment.quantity}
+                            </p>
+                          </div>
                         </div>
                         <Button
                           variant="danger"

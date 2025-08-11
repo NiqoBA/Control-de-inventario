@@ -301,7 +301,14 @@ export default function ProductsPage() {
                   <h3 style={{ fontSize: '1.125rem', fontWeight: 'bold', color: '#111827', marginBottom: '0.25rem' }}>
                     {product.name}
                   </h3>
-                  <p style={{ fontSize: '0.875rem', color: '#6B7280', marginBottom: '0.5rem' }}>SKU: {product.sku}</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', marginBottom: '0.5rem' }}>
+                    <p style={{ fontSize: '0.875rem', color: '#6B7280' }}>
+                      <strong>ID:</strong> <span style={{ fontFamily: 'monospace', background: '#f3f4f6', padding: '0.125rem 0.25rem', borderRadius: '0.25rem' }}>{product.id}</span>
+                    </p>
+                    <p style={{ fontSize: '0.875rem', color: '#6B7280' }}>
+                      <strong>SKU:</strong> {product.sku}
+                    </p>
+                  </div>
                   <span style={{
                     display: 'inline-block',
                     padding: '0.25rem 0.75rem',

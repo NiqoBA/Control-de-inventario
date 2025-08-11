@@ -13,39 +13,40 @@ export default function DashboardPage() {
   })
   const [lowStockProducts, setLowStockProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
+  const [userRole, setUserRole] = useState<string>('user')
+  const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
     const fetchStats = async () => {
       const supabase = createClient()
 
       try {
-        // Obtener total de productos
-        const { count: productsCount } = await supabase
-          .from('products')
-          .select('*', { count: 'exact', head: true })
+        // Obtener el usuario actual y su rol
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          const { data: userData } = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', user.id)
+            .single()
+          
+          if (userData) {
+            setUserRole(userData.role)
+            setIsAdmin(userData.role === 'admin')
+          }
+        }
 
-        // Obtener productos con stock bajo
-        const { count: lowStockCount } = await supabase
-          .from('products')
-          .select('*', { count: 'exact', head: true })
-          .lte('quantity', 'min_quantity')
+        // Obtener estadísticas del dashboard usando función segura
+        const { data: dashboardStats, error: statsError } = await supabase
+          .rpc('get_dashboard_stats')
 
-        // Obtener productos con stock bajo para mostrar alertas
-        const { data: lowStockData } = await supabase
-          .from('products')
-          .select('*')
-          .lte('quantity', 'min_quantity')
-          .order('quantity', { ascending: true })
-          .limit(5)
+        if (statsError) throw statsError
 
-        // Obtener valor total del inventario
-        const { data: products } = await supabase
-          .from('products')
-          .select('quantity, unit_price')
+        // Obtener productos con stock bajo usando función segura
+        const { data: lowStockData, error: lowStockError } = await supabase
+          .rpc('get_low_stock_products')
 
-        const totalValue = products?.reduce((sum, product) => {
-          return sum + (product.quantity * product.unit_price)
-        }, 0) || 0
+        if (lowStockError) throw lowStockError
 
         // Obtener transacciones recientes (últimos 7 días)
         const sevenDaysAgo = new Date()
@@ -57,9 +58,9 @@ export default function DashboardPage() {
           .gte('created_at', sevenDaysAgo.toISOString())
 
         setStats({
-          totalProducts: productsCount || 0,
-          lowStock: lowStockCount || 0,
-          totalValue,
+          totalProducts: dashboardStats?.[0]?.total_products || 0,
+          lowStock: dashboardStats?.[0]?.low_stock_count || 0,
+          totalValue: dashboardStats?.[0]?.total_inventory_value || 0,
           recentTransactions: recentTransactionsCount || 0,
         })
         setLowStockProducts(lowStockData || [])
@@ -107,40 +108,50 @@ export default function DashboardPage() {
       color: 'linear-gradient(135deg, rgb(239, 68, 68) 0%, rgb(220, 38, 38) 100%)',
       delay: 100,
     },
-    {
-      title: 'Valor Total',
+    // Solo mostrar valor total a administradores
+    ...(isAdmin ? [{
+      title: 'Valor Total del Inventario',
       value: `$${stats.totalValue.toLocaleString()}`,
       icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1',
       color: 'linear-gradient(135deg, rgb(34, 197, 94) 0%, rgb(22, 163, 74) 100%)',
       delay: 200,
-    },
+    }] : []),
     {
       title: 'Transacciones (7 días)',
       value: stats.recentTransactions,
       icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
       color: 'linear-gradient(135deg, rgb(59, 130, 246) 0%, rgb(37, 99, 235) 100%)',
-      delay: 300,
+      delay: isAdmin ? 300 : 200,
     },
   ]
 
   const quickActions = [
-    {
+    // Solo administradores pueden agregar productos
+    ...(isAdmin ? [{
       title: 'Agregar Producto',
       icon: 'M12 6v6m0 0v6m0-6h6m-6 0H6',
       href: '/dashboard/products',
       color: 'linear-gradient(135deg, rgb(218, 165, 32) 0%, rgb(255, 193, 7) 100%)',
-    },
-    {
+    }] : []),
+    // Solo administradores pueden gestionar stock
+    ...(isAdmin ? [{
       title: 'Entrada de Stock',
       icon: 'M7 11l5-5m0 0l5 5m-5-5v12',
       href: '/dashboard/transactions',
       color: 'linear-gradient(135deg, rgb(34, 197, 94) 0%, rgb(22, 163, 74) 100%)',
-    },
-    {
+    }] : []),
+    ...(isAdmin ? [{
       title: 'Salida de Stock',
       icon: 'M17 13l-5 5m0 0l-5-5m5 5V6',
       href: '/dashboard/transactions',
       color: 'linear-gradient(135deg, rgb(239, 68, 68) 0%, rgb(220, 38, 38) 100%)',
+    }] : []),
+    // Usuarios normales pueden crear solicitudes
+    {
+      title: 'Crear Solicitud de Stock',
+      icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
+      href: '/dashboard/stock-requests',
+      color: 'linear-gradient(135deg, rgb(59, 130, 246) 0%, rgb(37, 99, 235) 100%)',
     },
   ]
 
@@ -154,8 +165,23 @@ export default function DashboardPage() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       {/* Header */}
       <div>
-        <h1 style={{ fontSize: '1.875rem', fontWeight: 'bold', color: '#111827', marginBottom: '0.5rem' }}>Dashboard</h1>
-        <p style={{ color: '#6B7280' }}>Resumen del inventario de SouthGenetics</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <h1 style={{ fontSize: '1.875rem', fontWeight: 'bold', color: '#111827', marginBottom: '0.5rem' }}>Dashboard</h1>
+            <p style={{ color: '#6B7280' }}>Resumen del inventario de SouthGenetics</p>
+          </div>
+          <div style={{ 
+            padding: '0.5rem 1rem', 
+            borderRadius: '0.5rem', 
+            fontSize: '0.875rem',
+            fontWeight: '600',
+            background: isAdmin ? 'linear-gradient(135deg, rgb(34, 197, 94) 0%, rgb(22, 163, 74) 100%)' : 'linear-gradient(135deg, rgb(59, 130, 246) 0%, rgb(37, 99, 235) 100%)',
+            color: 'white',
+            textTransform: 'uppercase'
+          }}>
+            {isAdmin ? 'Administrador' : 'Usuario'}
+          </div>
+        </div>
       </div>
 
       {/* Stats Grid */}
@@ -255,10 +281,19 @@ export default function DashboardPage() {
                   <p style={{ fontSize: '0.875rem', fontWeight: '600', color: '#111827', margin: '0 0 0.25rem 0' }}>
                     {product.name}
                   </p>
-                  <p style={{ fontSize: '0.75rem', color: '#6B7280', margin: 0 }}>
+                  <p style={{ fontSize: '0.75rem', color: '#6B7280', margin: '0 0 0.25rem 0' }}>
                     Stock actual: <strong style={{ color: '#DC2626' }}>{product.quantity}</strong> | 
                     Stock mínimo: <strong>{product.min_quantity}</strong>
                   </p>
+                  {isAdmin && (
+                    <p style={{ fontSize: '0.75rem', color: '#6B7280', margin: 0 }}>
+                      SKU: <strong>{product.sku}</strong> | 
+                      Categoría: <strong>{product.category}</strong>
+                      {product.total_value && (
+                        <> | Valor: <strong style={{ color: '#DC2626' }}>${product.total_value.toLocaleString()}</strong></>
+                      )}
+                    </p>
+                  )}
                 </div>
                 <div style={{
                   padding: '0.25rem 0.75rem',
@@ -284,44 +319,57 @@ export default function DashboardPage() {
         boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
       }}>
         <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#111827', marginBottom: '1.5rem' }}>Acciones Rápidas</h2>
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
-          gap: '1rem' 
-        }}>
-          {quickActions.map((action, index) => (
-            <button
-              key={action.title}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '1rem 1.5rem',
-                background: action.color,
-                color: 'white',
-                fontWeight: '600',
-                borderRadius: '0.75rem',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '1rem',
-                transition: 'all 0.2s'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-2px)'
-                e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)'
-                e.currentTarget.style.boxShadow = 'none'
-              }}
-            >
-              <svg style={{ marginRight: '0.75rem', height: '1.25rem', width: '1.25rem' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={action.icon} />
-              </svg>
-              {action.title}
-            </button>
-          ))}
-        </div>
+        {quickActions.length > 0 ? (
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+            gap: '1rem' 
+          }}>
+            {quickActions.map((action, index) => (
+              <button
+                key={action.title}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '1rem 1.5rem',
+                  background: action.color,
+                  color: 'white',
+                  fontWeight: '600',
+                  borderRadius: '0.75rem',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '1rem',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-2px)'
+                  e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)'
+                  e.currentTarget.style.boxShadow = 'none'
+                }}
+              >
+                <svg style={{ marginRight: '0.75rem', height: '1.25rem', width: '1.25rem' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={action.icon} />
+                </svg>
+                {action.title}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div style={{ 
+            textAlign: 'center', 
+            padding: '2rem', 
+            color: '#6B7280',
+            background: 'rgba(249, 250, 251, 0.5)',
+            borderRadius: '0.75rem'
+          }}>
+            <p style={{ margin: '0 0 1rem 0' }}>No tienes acciones rápidas disponibles.</p>
+            <p style={{ margin: 0, fontSize: '0.875rem' }}>Contacta a un administrador para solicitar acceso a funciones adicionales.</p>
+          </div>
+        )}
       </div>
 
       {/* Recent Activity */}
