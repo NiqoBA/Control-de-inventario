@@ -77,7 +77,7 @@ export function useSupabase<T = Record<string, unknown>>(options: UseSupabaseOpt
     } finally {
       setLoading(false)
     }
-  }, [options.enabled, options.table, options.select, options.filters, options.orderBy, options.limit, options.onError, options.onSuccess, supabase])
+  }, [options.enabled, options.table, options.select, options.filters, options.orderBy, options.limit, options.onError, options.onSuccess, supabase, options])
 
   const create = async (newData: Partial<T>) => {
     try {

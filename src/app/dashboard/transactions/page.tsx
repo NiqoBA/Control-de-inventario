@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Transaction, Product } from '@/types'
 
@@ -32,11 +32,7 @@ export default function TransactionsPage() {
     fetchProducts()
   }, [])
 
-  useEffect(() => {
-    applyFiltersAndSort()
-  }, [transactions, filters, sortBy, sortOrder])
-
-  const applyFiltersAndSort = () => {
+  const applyFiltersAndSort = useCallback(() => {
     let filtered = [...transactions]
 
     // Aplicar filtros
@@ -49,8 +45,8 @@ export default function TransactionsPage() {
 
     // Aplicar ordenamiento
     filtered.sort((a, b) => {
-      let aValue: any
-      let bValue: any
+      let aValue: number | string
+      let bValue: number | string
 
       switch (sortBy) {
         case 'created_at':
@@ -77,7 +73,11 @@ export default function TransactionsPage() {
     })
 
     setFilteredTransactions(filtered)
-  }
+  }, [transactions, filters, sortBy, sortOrder])
+
+  useEffect(() => {
+    applyFiltersAndSort()
+  }, [applyFiltersAndSort])
 
   const clearFilters = () => {
     setFilters({

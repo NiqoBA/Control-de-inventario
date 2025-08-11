@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Product, Employee } from '@/types'
 import Modal from '@/components/Modal'
@@ -56,11 +56,7 @@ export default function StockRequestsPage() {
     fetchProducts()
   }, [])
 
-  useEffect(() => {
-    applyFiltersAndSort()
-  }, [requests, filters, sortBy, sortOrder])
-
-  const applyFiltersAndSort = () => {
+  const applyFiltersAndSort = useCallback(() => {
     let filtered = [...requests]
 
     // Aplicar filtros
@@ -76,8 +72,8 @@ export default function StockRequestsPage() {
 
     // Aplicar ordenamiento
     filtered.sort((a, b) => {
-      let aValue: any
-      let bValue: any
+      let aValue: number | string
+      let bValue: number | string
 
       switch (sortBy) {
         case 'requested_at':
@@ -105,7 +101,11 @@ export default function StockRequestsPage() {
     })
 
     setFilteredRequests(filtered)
-  }
+  }, [requests, filters, sortBy, sortOrder])
+
+  useEffect(() => {
+    applyFiltersAndSort()
+  }, [applyFiltersAndSort])
 
   const clearFilters = () => {
     setFilters({
@@ -655,7 +655,7 @@ export default function StockRequestsPage() {
               <select
                 required
                 value={formData.priority}
-                onChange={(e) => setFormData({ ...formData, priority: e.target.value as any })}
+                onChange={(e) => setFormData({ ...formData, priority: e.target.value as 'baja' | 'media' | 'alta' | 'urgente' })}
                 style={{
                   width: '100%',
                   padding: '0.75rem',
